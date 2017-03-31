@@ -1,8 +1,11 @@
 from __future__ import print_function
 import httplib2
 import os
+import subprocess
+import shlex
 
 from apiclient import discovery
+from apiclient import errors
 from oauth2client import client
 from oauth2client import tools
 from oauth2client.file import Storage
@@ -51,35 +54,49 @@ def get_credentials():
 
 
 def main():
-    """Shows basic usage of the Sheets API.
+    """Update the Google Spreadsheet with images from Google Drive
 
-    Creates a Sheets API service object and prints the names and majors of
-    students in a sample spreadsheet:
-    https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
+    Check the list of images on Google Spreadsheet and Google Drive.
+    Add missing images to Google Cloud Storage with public access.
+    Update the spreadsheet with the image URL and name.
     """
     credentials = get_credentials()
     http = credentials.authorize(httplib2.Http())
 
+    #
     # Drive
-    # https://drive.google.com/drive/u/0/folders/0ByCbODUKWs0ja3ZBSndmWFg2MW8
+    # https://drive.google.com/drive/u/0/folders/0B8vdPd-4HdtuamtXZnR0Vk80OWc
+    # Build the list of filenames in that folder
     imagefolderid = '0B8vdPd-4HdtuamtXZnR0Vk80OWc'
     servicedrive = discovery.build('drive', 'v3', http=http)
+    page_token = None
+    drive_file_list = []
+    while True:
+        response = servicedrive.files().list(q="'" + imagefolderid + "' in parents",
+                                             orderBy='createdTime desc',
+                                             spaces='drive',
+                                             fields='nextPageToken, files(id, name)',
+                                             pageToken=page_token).execute()
+        for file in response.get('files', []):
+            # Process change
+            # print('Found file: %s - %s' % (file.get('name'), file.get('id')))
+            drive_file_list.append(file.get('name'))
+        page_token = response.get('nextPageToken', None)
+        if page_token is None:
+            break;
+    for stuff in drive_file_list:
+        print(stuff)
 
-    # resultsdrive = servicedrive.files().list(
-    #     pageSize=10, fields="nextPageToken, files(id, name)").execute()
+    print('********************************************')
+    print('**** Exiting here for now because       ****')
+    print('**** the code is not completed yet      ****')
+    print('********************************************')
+    exit()
 
-    resultsdrive = servicedrive.files().list( q = "'" + imagefolderid + "' in parents",
-        pageSize = 5, fields = "nextPageToken, files(id, name)").execute()
 
-    items = resultsdrive.get('files', [])
-    if not items:
-        print('No files found.')
-    else:
-        print('Files:')
-        for item in items:
-            print('{0} ({1})'.format(item['name'], item['id']))
-
+    #
     # Spreadsheet
+    # URL: ...
     discoveryUrl = ('https://sheets.googleapis.com/$discovery/rest?'
                     'version=v4')
     service = discovery.build('sheets', 'v4', http=http,
@@ -103,8 +120,7 @@ def main():
     # Google Cloud Storage ##
     # list files
     # https://storage.googleapis.com/kikicatalog/Images/3100009479a-misako-barbara-bolso-gris.jpg
-    import subprocess
-    import shlex
+
     gs_base_url = 'https://storage.googleapis.com/kikicatalog/Images'
     proc = subprocess.Popen(shlex.split('/home/camil/Google/google-cloud-sdk/bin/gsutil ls gs://kikicatalog/Images'), stdout=subprocess.PIPE)
     result = proc.communicate()[0].decode('utf-8')
