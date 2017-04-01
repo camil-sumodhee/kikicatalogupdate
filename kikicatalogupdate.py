@@ -72,7 +72,7 @@ def main():
     page_token = None
     drive_file_list = []
     while True:
-        response = servicedrive.files().list(q="'" + imagefolderid + "' in parents",
+        response = servicedrive.files().list(q="'" + imagefolderid + "' in parents and trashed = false",
                                              orderBy='createdTime desc',
                                              spaces='drive',
                                              fields='nextPageToken, files(id, name)',
@@ -84,38 +84,65 @@ def main():
         page_token = response.get('nextPageToken', None)
         if page_token is None:
             break;
-    for stuff in drive_file_list:
-        print(stuff)
-
-    print('********************************************')
-    print('**** Exiting here for now because       ****')
-    print('**** the code is not completed yet      ****')
-    print('********************************************')
-    exit()
-
+    print('>>> Content of Google Drive >>> START')
+    # for stuff in drive_file_list:
+    #     print(stuff)
+    print('Number of items: %d' % len(drive_file_list))
+    print('<<< Content of Google Drive <<< END\n')
 
     #
     # Spreadsheet
     # URL: ...
     discoveryUrl = ('https://sheets.googleapis.com/$discovery/rest?'
                     'version=v4')
-    service = discovery.build('sheets', 'v4', http=http,
-                              discoveryServiceUrl=discoveryUrl)
+    servicesheet = discovery.build('sheets', 'v4', http=http, discoveryServiceUrl=discoveryUrl)
 
     # spreadsheetId = '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms'
     spreadsheetId = '1_0tf86scoO4lOa5UCDDYKDc10U1dJ7-W6jD5Nq4FPJE'
-    rangeName = 'Catalog!B1'
-    result = service.spreadsheets().values().get(
+    rangeName = 'Catalog!B2:B'
+    result = servicesheet.spreadsheets().values().get(
         spreadsheetId=spreadsheetId, range=rangeName).execute()
-    values = result.get('values', [])
+    spreadsheet_file_list_tmp = result.get('values', [])
 
-    if not values:
-        print('No data found.')
+    spreadsheet_file_list = []
+    if not spreadsheet_file_list_tmp:
+        print('No data found in spreadsheet.')
     else:
-        print('Name:')
-        for row in values:
+        for row in spreadsheet_file_list_tmp:
             # Print columns A, which correspond to indices 0.
-            print('%s' % (row[0]))
+            # print('%s' % (row[0]))
+            spreadsheet_file_list.append(row[0])
+
+    print('>>> Content of Google Spreadsheet >>> START')
+    # for thing in spreadsheet_file_list:
+    #     print('%s' % thing)
+    print('Number of items: %d' % len(spreadsheet_file_list))
+    print('<<< Content of Google Spreadsheet <<< END\n')
+
+    # Compute the difference between
+    # list of files on Google Drive and not in Spreadsheet
+    # list of files in Google Spreadsheet and not in Drive
+
+    print('>>> Items in Drive and not in Spreadsheet >>> START')
+    in_drive_not_in_spreadsheet = list(set(drive_file_list).difference(spreadsheet_file_list))
+    for i1 in in_drive_not_in_spreadsheet:
+        print('%s' % i1)
+    print('Number of items in Drive and not in Spreadsheet: %d' % len(in_drive_not_in_spreadsheet))
+    print('<<< Items in Drive and not in Spreadsheet <<< END\n')
+
+    print('>>> Items in Spreadsheet and not in Drive >>> START')
+    in_spreadsheet_not_in_drive = list(set(spreadsheet_file_list).difference(drive_file_list))
+    for i1 in in_spreadsheet_not_in_drive:
+        print('%s' % i1)
+    print('Number of items in Spreadsheet and not in Drive: %d' % len(in_spreadsheet_not_in_drive))
+    print('<<< Items in Spreadsheet and not in Drive <<< END\n')
+
+
+    print('********************************************')
+    print('**** Exiting here for now because       ****')
+    print('**** the code is not completed yet      ****')
+    print('********************************************')
+    exit()
 
     # Google Cloud Storage ##
     # list files
@@ -146,7 +173,7 @@ def main():
         'values': values
     }
     value_input_option = 'USER_ENTERED'
-    res = service.spreadsheets().values().update(
+    res = servicesheet.spreadsheets().values().update(
         spreadsheetId=spreadsheetId, range=range_name,
         valueInputOption=value_input_option, body=body).execute()
 
